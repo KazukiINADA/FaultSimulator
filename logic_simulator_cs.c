@@ -3,7 +3,7 @@
 #include<time.h>
 #include<string.h>
 
-#define SIZE 100000 //キューのサイズ。SIZE-1まで格納できる
+#define SIZE 50000 //キューのサイズ。SIZE-1まで格納できる
 
 struct queue{
   unsigned int list[SIZE];
@@ -17,14 +17,15 @@ struct queue{
 int enqueue(struct queue *qp,int data);
 int dequeue(struct queue *qp);
 void show_queue(struct queue *qp);
-char logic_cal(int (*signal_line)[6],int line_no,int *pointa_list);
+char logic_cal(int (*signal_line)[6],int line_no,unsigned int *pointa_list);
 
 //cs回路用
 int main (int argc, char *argv[]){
-  int i,j;
+  int i,j,now_no;
   char input[255];
   char filename[511];
   FILE *fp;
+  int input_rd;
 
   int (*signal_line)[6];
   unsigned int *input_list;
@@ -32,7 +33,7 @@ int main (int argc, char *argv[]){
   unsigned int signal_lines;
   unsigned int input_lists;
   unsigned int output_lists;
-  int *pointa_list;
+  unsigned int *pointa_list;
   unsigned int pointa_lists;
 
   unsigned char **test_ptn;
@@ -40,6 +41,8 @@ int main (int argc, char *argv[]){
   unsigned int ptn_i;
 
   unsigned char **true_out;
+
+  int *cal_no;
   
   struct queue que;
   que.head = 0;
@@ -87,7 +90,7 @@ int main (int argc, char *argv[]){
     exit(-1);
   }
 
-  pointa_list = malloc(pointa_lists*sizeof(int));
+  pointa_list = malloc(pointa_lists*sizeof(unsigned int));
 
   if(pointa_list == NULL){
     printf("pointa list malloc Error.\n");
@@ -107,7 +110,7 @@ int main (int argc, char *argv[]){
     exit(-1);
   }
 
-  input_list = malloc(input_lists*sizeof(int));
+  input_list = malloc(input_lists*sizeof(unsigned int));
 
   if(input_list == NULL){
     printf("input list malloc Error.\n");
@@ -127,7 +130,7 @@ int main (int argc, char *argv[]){
     exit(-1);
   }
 
-  output_list = malloc(output_lists*sizeof(int));
+  output_list = malloc(output_lists*sizeof(unsigned int));
 
   if(output_list == NULL){
     printf("output list malloc Error.\n");
@@ -171,14 +174,27 @@ int main (int argc, char *argv[]){
   
   for(i=0;i<test_ptns;i++){
     for(j=0;j<input_lists;j++){
-      if(fscanf(fp,"%d",&test_ptn[i][j]) != 1){
+      if(fscanf(fp,"%d",&input_rd) != 1){
 	printf("pat File read Error.\n");
 	exit(-1);
+      }else{
+	test_ptn[i][j] = (unsigned char)input_rd;
       }
     }
   }
 
   fclose(fp);
+
+  //計算順番を格納する配列を確保、初期化
+  cal_no = malloc(signal_lines*sizeof(int));
+
+  if(cal_no == NULL){
+    printf("cal no malloc Error.\n");
+    exit(-1);
+  }
+  for(i=0;i<signal_lines;i++){
+    cal_no[i] = -1;
+  }
 
   //正しい出力を記録する配列を確保
   if((true_out = malloc(test_ptns*sizeof(unsigned char *)))==NULL){
@@ -208,35 +224,53 @@ int main (int argc, char *argv[]){
       }
     }
 
-    //最初の信号線出力計算
-    for(i=1;i<=signal_lines;i++){
-      if(signal_line[(i-1)][5] == -1){ //信号線が既に決まっている場合はスキップ
+    if(cal_no[0] == -1){ //順番が定まっていないときだけ実行
+      now_no = 0;
+      //最初の信号線出力計算
+      for(i=1;i<=signal_lines;i++){
+	if(signal_line[(i-1)][5] == -1){ //信号線が既に決まっている場合はスキップ
+	  if(logic_cal(signal_line,i,pointa_list) == -1){
+	    if(enqueue(&que,i) == -1){
+	      printf("queue full Error\n");
+	      exit(-1);
+	    }
+	  }else{ //計算できた場合は順番を覚える
+	    cal_no[now_no] = i;
+	    now_no++;
+	  }
+	}
+      }
+      
+      //キューから取り出しながら再計算
+      while((i = dequeue(&que)) != -1){
 	if(logic_cal(signal_line,i,pointa_list) == -1){
 	  if(enqueue(&que,i) == -1){
 	    printf("queue full Error\n");
 	    exit(-1);
 	  }
+	}else{ //計算できた場合は順番を覚える
+	  cal_no[now_no] = i;
+	  now_no++;
 	}
       }
-    }
-
-    //キューから取り出しながら再計算
-    while((i = dequeue(&que)) != -1){
-      if(logic_cal(signal_line,i,pointa_list) == -1){
-	if(enqueue(&que,i) == -1){
-	  printf("queue full Error\n");
-    	  exit(-1);
+    }else{ //順番が既に定まっている場合
+      i = 0;
+      while(cal_no[i] != -1){
+	if(logic_cal(signal_line,cal_no[i],pointa_list) == -1){
+	  printf("logic cal roop(more than 2) Error.\n");
+	  exit(-1);
 	}
+	i++;
       }
     }
-
+    
     //出力をtrue_out に保存
     for(i=0;i<output_lists;i++){
       if(signal_line[(output_list[i]-1)][5] == -1){
 	printf("output line Error.\n");
 	exit(-1);
       }else{
-	true_out[ptn_i][i] = signal_line[(output_list[i]-1)][5];
+	true_out[ptn_i][i] = (unsigned char)signal_line[(output_list[i]-1)][5];
       }
     }
     
@@ -313,7 +347,7 @@ void show_queue(struct queue *qp){
   }
 }
 
-char logic_cal(int (*signal_line)[6],int line_no,int *pointa_list){
+char logic_cal(int (*signal_line)[6],int line_no,unsigned int *pointa_list){
   //信号線の出力を計算、入力未定義の場合は-1を返す
   int res;
   int i;
@@ -326,8 +360,10 @@ char logic_cal(int (*signal_line)[6],int line_no,int *pointa_list){
     break;
   case 1: //or
     if(signal_line[line_no-1][1] <= 1){ //入力数
-      printf("Logic cal OR Error(%dth Line).\n",line_no);
-      exit(-1);
+      //printf("Logic cal OR Error(%dth Line).\n",line_no);
+      //exit(-1);
+      signal_line[line_no-1][5] = signal_line[(signal_line[line_no-1][2])-1][5];
+      return (char)signal_line[line_no-1][5];
     }else{
       res = 0;
       pointa_head = signal_line[line_no-1][2];
@@ -348,8 +384,10 @@ char logic_cal(int (*signal_line)[6],int line_no,int *pointa_list){
     break;
   case 2: // AND
     if(signal_line[line_no-1][1] <= 1){ //入力数
-      printf("Logic cal AND Error(%dth Line).\n",line_no);
-      exit(-1);
+      //printf("Logic cal AND Error(%dth Line).\n",line_no);
+      //exit(-1);
+      signal_line[line_no-1][5] = signal_line[(signal_line[line_no-1][2])-1][5];
+      return (char)signal_line[line_no-1][5];
     }else{
       res = 1;
       pointa_head = signal_line[line_no-1][2];
@@ -413,8 +451,26 @@ char logic_cal(int (*signal_line)[6],int line_no,int *pointa_list){
     break;
   case -1: //NAND
     if(signal_line[line_no-1][1] <= 1){ //入力数
-      printf("Logic cal NAND Error(%dth Line).\n",line_no);
-      exit(-1);
+      //printf("Logic cal NAND Error(%dth Line).\n",line_no);
+      //exit(-1);
+      switch(signal_line[(signal_line[line_no-1][2])-1][5]){
+      case -1:
+	res = -1;
+	break;
+      case 0:
+	res = 1;
+	break;
+      case 1:
+	res = 0;
+	break;
+      default:
+	res = -1;
+	printf("Error :Line %d NOT gate inputed undefined signal(%d)\n",line_no,signal_line[(signal_line[line_no-1][2])-1][5]);
+	exit(-1);
+	break;
+      }
+      signal_line[line_no-1][5] = res;
+      return (char)signal_line[line_no-1][5];
     }else{
       res = 1;
       pointa_head = signal_line[line_no-1][2];
@@ -437,8 +493,26 @@ char logic_cal(int (*signal_line)[6],int line_no,int *pointa_list){
     break;
   case -2: //NOR
     if(signal_line[line_no-1][1] <= 1){ //入力数
-      printf("Logic cal NOR Error(%dth Line).\n",line_no);
-      exit(-1);
+      //printf("Logic cal NOR Error(%dth Line).\n",line_no);
+      //exit(-1);
+      switch(signal_line[(signal_line[line_no-1][2])-1][5]){
+      case -1:
+	res = -1;
+	break;
+      case 0:
+	res = 1;
+	break;
+      case 1:
+	res = 0;
+	break;
+      default:
+	res = -1;
+	printf("Error :Line %d NOR gate inputed undefined signal(%d)\n",line_no,signal_line[(signal_line[line_no-1][2])-1][5]);
+	exit(-1);
+	break;
+      }
+      signal_line[line_no-1][5] = res;
+      return (char)signal_line[line_no-1][5];
     }else{
       res = 0;
       pointa_head = signal_line[line_no-1][2];
