@@ -20,7 +20,7 @@ void show_queue(struct queue *qp);
 char logic_cal(int (*signal_line)[6],int line_no,unsigned int *pointa_list);
 void logic_cal_bit(int (*signal_line)[6],int *signal_bit,int line_no,unsigned int *pointa_list);
 
-//cs回路用
+//e回路用
 int main (int argc, char *argv[]){
   int i,j,now_no;
   char input[255];
@@ -186,9 +186,7 @@ int main (int argc, char *argv[]){
   }
   
   for(i=0;i<test_arrays;i++){
-    for(j=0;j<input_lists;j++){
-      test_ptn[i][j] = test_ptn[i][j] ^ test_ptn[i][j]; //すべて０で初期化
-    }
+    memset(test_ptn[i],0b0,input_lists*sizeof(int)); //すべて０で初期化
   }
 
   for(i=0;i<test_ptns;i++){
@@ -309,9 +307,7 @@ int main (int argc, char *argv[]){
     }
     
     //出力をtrue_out に保存
-    for(i=0;i<signal_lines;i++){
-      true_out[ptn_i][i] = signal_bit[i];
-    }
+    memcpy(true_out[ptn_i],signal_bit,sizeof(int)*signal_lines);
     
   //テストパターンループの終わり
   }
@@ -357,9 +353,7 @@ int main (int argc, char *argv[]){
     //テストパターン抽出
     for(ptn_i=0;ptn_i<test_arrays;ptn_i++){
       //信号線出力を正常状態から読み出す
-      for(i=0;i<signal_lines;i++){
-	signal_bit[i] = true_out[ptn_i][i];
-      }
+      memcpy(signal_bit,true_out[ptn_i],sizeof(int)*signal_lines);
 
       //故障信号線の定義
       //signal_line[(fault_ptn[fault_i][0]-1)][5] = fault_ptn[fault_i][1];
