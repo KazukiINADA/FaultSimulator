@@ -1,6 +1,14 @@
 # simulator_template
 This repository is a template for creating a fault simulator.
 
+#作成ファイル一覧
+・'dedu_fault_simulator_e.c'、'dedu_fault_simulator_cs.c':演繹法を取り入れた故障シミュレーション(高速化には至らず)
+・'easy_fault_e.c'、'easy_fault_cs.c':高速化なしの故障シミュレーション
+・'easy_fault_list_e.c'、'easy_fault_list_cs.c':高速化なしの故障シミュレーション(高速化との時間比較に利用、故障リストを利用)
+・'logic_simulator_e.c'、'logic_simulator_cs.c':論理シミュレーション
+・'para_fault_simulator_e.c'、`para_fault_simulator_cs.c`:テストパターンを並列化させることで高速化させた故障シミュレーション（longのついたものはunsigned long long int 型で並列化）
+・'para2_fault_simulator_e.c'、'para2_fault_simulator_cs.c':故障パターンを並列化させることで高速化させた故障シミュレーション（longのついたものはunsigned long long int 型で並列化）
+
 # Usage(for template)
 1. Create a repository for your fault simulator implementation from this template repository.
 1. Update README.md. Change the title to your own repository name and delete `Usage(for template)`.  
